@@ -66,16 +66,24 @@ old_scripts/                上游原始脚本存档（autotools 路线），仅
 
 ## 快速开始
 
-`.sh` 脚本用 bash 语法，Windows 上必须在 **Git Bash** 里执行（PowerShell 里要显式调 bash）：
+`.sh` 脚本用 bash 语法：推荐打开 **Git Bash**，`cd` 到仓库根目录后执行；在 PowerShell 里则显式调用 `bash`。
 
-```powershell
-& "D:\Program Files\Git\bin\bash.exe" -lc "cd /e/open_source/openssl-curl-ssh2 && bash scripts/build-android-arm64-v8a.sh"
-```
-
-首次准备源码（只跑一次）：
+**1. 首次准备源码（只跑一次）**，按固定 tag 克隆到 `checkouts/`：
 
 ```bash
 bash scripts/prepare-sources.sh
+```
+
+**2. 构建某平台**，例如 Android arm64-v8a：
+
+```bash
+bash scripts/build-android-arm64-v8a.sh
+```
+
+PowerShell 下等价写法（`<仓库根目录>` 换成本机实际路径；Git 的 `bin` 已在 PATH 时可直接用 `bash`）：
+
+```powershell
+bash -lc "cd <仓库根目录> && bash scripts/build-android-arm64-v8a.sh"
 ```
 
 ## 各平台用法
