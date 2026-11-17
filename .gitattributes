@@ -1,0 +1,7 @@
+# 文本文件自动识别，二进制不做转换
+* text=auto
+
+# Shell 脚本必须 LF：CR 会破坏 shebang 与解释器参数
+*.sh text eol=lf
+# PowerShell 脚本 LF/CRLF 均可，统一保持 LF
+*.ps1 text eol=lf
