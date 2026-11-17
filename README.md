@@ -1,7 +1,18 @@
 # openssl-curl-ssh2
 
-在一台开发机上（Windows / Linux）为 **Android、Windows(MinGW/MSVC)、Ubuntu** 交叉编译
-**OpenSSL + libssh2 + curl** 三件套的脚本集合，每套都出 **static / shared** 两种产物。
+## 项目简介
+
+本项目是一套**从源码编译** OpenSSL、libssh2、curl 三库的跨平台脚本集合，面向需要在自己的
+Qt / C++ 工程里内嵌 HTTPS 与 SFTP/SCP 网络能力的场景。脚本在一台开发机上按统一流程产出各
+目标平台的预编译库；每个平台、每种链接方式都出 **static（静态）** 与 **shared（动态）** 两套
+标准 prefix（`include/` + `lib/`）。
+
+- **目标平台**：Android arm64-v8a / armeabi-v7a、Windows MinGW64（Qt 5.15 / Qt 6.8）、Windows MSVC x64（VS2022）、Ubuntu 22.04 x64。
+- **宿主环境**：Windows（Git Bash / PowerShell）或 Ubuntu 22.04。
+- **版本固定**：OpenSSL `1.1.1w`（供 Qt 5.15 老工程）/ `3.5.9` LTS、libssh2 `1.11.1`、curl `8.23.0`。
+- **构建方式**：out-of-tree 影子构建，源码目录保持干净；重复执行自动跳过已装好的版本/模式。
+- **依赖收敛**：curl 显式关闭 brotli/zstd/zlib 等可选压缩后端，静态产物不额外链接系统压缩库。
+- **部署选择**：静态产物适合 Qt 单文件部署（无需随附第三方库）；动态产物体积更小，可按需更新。
 
 本项目最初 fork 自 [robertying/openssl-curl-android](https://github.com/robertying/openssl-curl-android)，
 现已改为按平台、按库分阶段的可复用构建脚本，源码放在 `checkouts/`，产物放在 `build/`，源码目录保持干净（out-of-tree）。
