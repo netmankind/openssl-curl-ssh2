@@ -15,13 +15,14 @@ set -uo pipefail
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 REPO_ROOT=$(cd "$SCRIPT_DIR/.." && pwd)
 
-CHECKOUT_DIR="$REPO_ROOT/checkouts"
 BUILD_ROOT="$REPO_ROOT/build"
 
-OPENSSL_111W_DIR="$CHECKOUT_DIR/openssl-1.1.1w"
-OPENSSL_350_DIR="$CHECKOUT_DIR/openssl-3.5.9"
-CURL_DIR="$CHECKOUT_DIR/curl-8.23.0"
-LIBSSH2_DIR="$CHECKOUT_DIR/libssh2-1.11.1"
+# 第三方源码以 git 子模块形式放在仓库根目录，目录名带版本号；
+# 各编译脚本 source 本文件时会自动校验并拉取缺失/不完整的子模块，无需单独跑准备脚本。
+OPENSSL_111W_DIR="$REPO_ROOT/openssl-1.1.1w"
+OPENSSL_350_DIR="$REPO_ROOT/openssl-3.5.9"
+CURL_DIR="$REPO_ROOT/curl-8.23.0"
+LIBSSH2_DIR="$REPO_ROOT/libssh2-1.11.1"
 
 # 默认参与编译的 OpenSSL 版本：1.1.1w 给 Qt5 老工程，3.5.9 LTS 给 Qt6.8 及 ssh2/curl
 OPENSSL_VERSIONS_DEFAULT="1.1.1w 3.5.9"
@@ -31,6 +32,40 @@ LIBSSH2_VERSION="1.11.1"
 # 老版本 OpenSSL：不编 libssh2 / curl（curl 8.23 要求 OpenSSL 3.0+）
 isLegacyOpenssl() {
     [[ "$1" == 1.1.1* ]]
+}
+
+# 校验单个子模块目录是否完整：目录存在、非空、git HEAD 可解析（元数据有效）。
+# 用于识别半拉取/克隆失败状态，避免源码缺失直接进入编译。
+isSubmoduleComplete() {
+    local dir="$1"
+    [[ -d "$dir" ]] || return 1
+    [[ -n "$(ls -A "$dir" 2>/dev/null)" ]] || return 1
+    git -C "$dir" rev-parse HEAD >/dev/null 2>&1
+}
+
+# 确保 .gitmodules 登记的源码子模块已拉取且完整：缺失/不完整的才拉取，已完整的跳过。
+# 集中在 common.sh，各编译脚本 source 后自动执行，无需单独跑 prepare-sources.sh。
+ensureSubmodules() {
+    local sub dir
+    local -a subs
+    local gitmodules="$REPO_ROOT/.gitmodules"
+    [[ -f "$gitmodules" ]] || return 0
+
+    mapfile -t subs < <(git -C "$REPO_ROOT" config --file "$gitmodules" --get-regexp '^submodule\..*\.path$' | awk '{print $2}')
+    [[ "${#subs[@]}" -gt 0 ]] || return 0
+
+    for sub in "${subs[@]}"; do
+        dir="$REPO_ROOT/$sub"
+        if isSubmoduleComplete "$dir"; then
+            logInfo "子模块 $sub 已就绪，跳过"
+            continue
+        fi
+        logStep "子模块 $sub 缺失或不完整，拉取中..."
+        git -C "$REPO_ROOT" submodule update --init --recursive -- "$sub"
+        if ! isSubmoduleComplete "$dir"; then
+            die "子模块 $sub 拉取后仍不完整，请检查网络后重试"
+        fi
+    done
 }
 
 # 并行编译任务数；MinGW 等宿主可在平台脚本里覆盖上限
@@ -227,3 +262,6 @@ resolveCMake() {
         [[ -n "$c" && -x "$c" ]] && { echo "$c"; return; }
     done
 }
+
+# source 本文件即自动确保源码子模块就绪（已完整的跳过，缺失/不完整的才拉取）
+ensureSubmodules

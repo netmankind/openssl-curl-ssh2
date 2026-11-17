@@ -1,0 +1,12 @@
+[submodule "libssh2-1.11.1"]
+	path = libssh2-1.11.1
+	url = https://github.com/libssh2/libssh2.git
+[submodule "curl-8.23.0"]
+	path = curl-8.23.0
+	url = https://github.com/curl/curl.git
+[submodule "openssl-3.5.9"]
+	path = openssl-3.5.9
+	url = https://github.com/openssl/openssl.git
+[submodule "openssl-1.1.1w"]
+	path = openssl-1.1.1w
+	url = https://github.com/openssl/openssl.git

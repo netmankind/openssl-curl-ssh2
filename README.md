@@ -15,7 +15,7 @@ Qt / C++ 工程里内嵌 HTTPS 与 SFTP/SCP 网络能力的场景。脚本在一
 - **部署选择**：静态产物适合 Qt 单文件部署（无需随附第三方库）；动态产物体积更小，可按需更新。
 
 本项目最初 fork 自 [robertying/openssl-curl-android](https://github.com/robertying/openssl-curl-android)，
-现已改为按平台、按库分阶段的可复用构建脚本，源码放在 `checkouts/`，产物放在 `build/`，源码目录保持干净（out-of-tree）。
+现已改为按平台、按库分阶段的可复用构建脚本，源码以子模块放在根目录，产物放在 `build/`，源码目录保持干净（out-of-tree）。
 
 ## 依赖顺序
 
@@ -32,27 +32,36 @@ Qt / C++ 工程里内嵌 HTTPS 与 SFTP/SCP 网络能力的场景。脚本在一
 
 ## 上游源码与版本
 
-第三方源码不随主仓库分发，本地 `checkouts/`、`build/` 均被 `.gitignore` 忽略；首次构建前先跑
-`bash scripts/prepare-sources.sh`，它按下列固定 tag 浅克隆到 `checkouts/`：
+三库源码以 **git 子模块**登记在仓库根目录，目录名带版本号；主仓库只记录各子模块指向的
+commit，不随主仓库分发源码文件。各编译脚本启动时会自动校验并拉取缺失/不完整的子模块；
+也可手动初始化：
 
-| 库 | 版本 | 上游仓库 | tag |
-|---|---|---|---|
-| OpenSSL | 1.1.1w | https://github.com/openssl/openssl | `OpenSSL_1_1_1w` |
-| OpenSSL | 3.5.9 | https://github.com/openssl/openssl | `openssl-3.5.9` |
-| libssh2 | 1.11.1 | https://github.com/libssh2/libssh2 | `libssh2-1.11.1` |
-| curl | 8.23.0 | https://github.com/curl/curl | `curl-8_23_0` |
+```bash
+bash scripts/prepare-sources.sh
+# 等价于 git submodule update --init --recursive
+```
 
-> 网络受限时可设 `MIRROR=1`，脚本优先走 githubfast 镜像；已存在的源码目录会跳过，可反复重试。
+| 子模块目录 | 库 | 版本 | 上游仓库 | tag |
+|---|---|---|---|---|
+| `openssl-1.1.1w/` | OpenSSL | 1.1.1w | https://github.com/openssl/openssl | `OpenSSL_1_1_1w` |
+| `openssl-3.5.9/` | OpenSSL | 3.5.9 | https://github.com/openssl/openssl | `openssl-3.5.9` |
+| `libssh2-1.11.1/` | libssh2 | 1.11.1 | https://github.com/libssh2/libssh2 | `libssh2-1.11.1` |
+| `curl-8.23.0/` | curl | 8.23.0 | https://github.com/curl/curl | `curl-8_23_0` |
+
+> 子模块钉的是 tag 对应的 commit；`prepare-sources.sh` 会跳过已存在的源码目录，可反复重试。
 
 ## 目录结构
 
 ```
-checkouts/                  源码（prepare-sources.sh 按固定 tag 克隆，git 忽略，不随主仓库分发）
+openssl-1.1.1w/             子模块：OpenSSL 1.1.1w（gitlink，commit 由主仓库记录）
+openssl-3.5.9/              子模块：OpenSSL 3.5.9
+libssh2-1.11.1/             子模块：libssh2 1.11.1
+curl-8.23.0/                子模块：curl 8.23.0
 build/<平台>/               产物 prefix（include/lib）与 `.build/` out-of-tree 中间目录
 build/trees/                MSVC 构建用的源码工作副本（git 忽略，重编时再生成）
 scripts/
   common.sh                 路径、版本、产物布局、通用工具函数
-  prepare-sources.sh        一次性浅克隆三个库的源码
+  prepare-sources.sh        子模块初始化兜底入口（编译脚本已自动执行，可手动跑）
   lib/android.sh            Android 公共构建逻辑（被入口脚本 source）
   lib/mingw.sh              MinGW 公共构建逻辑
   build-android-arm64-v8a.sh        入口，内部按 openssl -> ssh2 -> curl
@@ -68,17 +77,13 @@ old_scripts/                上游原始脚本存档（autotools 路线），仅
 
 `.sh` 脚本用 bash 语法：推荐打开 **Git Bash**，`cd` 到仓库根目录后执行；在 PowerShell 里则显式调用 `bash`。
 
-**1. 首次准备源码（只跑一次）**，按固定 tag 克隆到 `checkouts/`：
-
-```bash
-bash scripts/prepare-sources.sh
-```
-
-**2. 构建某平台**，例如 Android arm64-v8a：
+各编译脚本启动时会自动校验源码子模块：已拉取且完整的跳过，缺失/不完整的才按 `.gitmodules` 拉取，无需单独准备源码。直接构建某平台即可，例如 Android arm64-v8a：
 
 ```bash
 bash scripts/build-android-arm64-v8a.sh
 ```
+
+> 想提前把源码拉下来，可手动跑 `bash scripts/prepare-sources.sh`（等价于 `git submodule update --init --recursive`）。
 
 PowerShell 下等价写法（`<仓库根目录>` 换成本机实际路径；Git 的 `bin` 已在 PATH 时可直接用 `bash`）：
 
@@ -114,7 +119,7 @@ bash -lc "cd <仓库根目录> && bash scripts/build-android-arm64-v8a.sh"
 ```
 
 脚本会自动用 `vswhere` 找 VS2022 的 `vcvars64.bat`，也可用 `-VsInstall` 指定。
-OpenSSL 的 nmake 构建只能在源码目录内进行，所以每个版本/模式会复制一份独立副本到 `build/trees/`，不污染 `checkouts/`。
+OpenSSL 的 nmake 构建只能在源码目录内进行，所以每个版本/模式会复制一份独立副本到 `build/trees/`，不污染子模块源码目录。
 
 ### Ubuntu 22.04
 

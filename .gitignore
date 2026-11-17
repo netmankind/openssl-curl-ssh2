@@ -1,8 +1,10 @@
 # 编译产物与 out-of-tree 中间目录（含 .tmp 探针/日志、trees 工作副本、各平台 .build）
 build/
 
-# 第三方源码：本地保留但不随主仓库分发，由 prepare-sources.sh 按固定 tag 从上游克隆
+# 历史 checkouts 拉取目录（源码现已改为根目录下带版本号的 git 子模块，本地遗留目录不入库）
 checkouts/
+
+# 早期遗留的无根版本号源码目录（已被带版本号的子模块取代）
 openssl/
 curl/
 libssh2/

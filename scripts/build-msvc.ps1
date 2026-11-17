@@ -8,7 +8,7 @@
 #   .\scripts\build-msvc.ps1 -VsInstall "D:\Program Files\Microsoft Visual Studio\2022\Enterprise"
 #
 # 说明：OpenSSL 的 nmake 构建只能在源码目录内进行，每个版本/模式复制一份独立副本
-#       到 build\trees\，checkouts\ 原始源码保持干净。
+#       到 build\trees\，子模块原始源码保持干净。
 #
 param(
     [string[]]$Versions = @("1.1.1w", "3.5.9"),
@@ -35,8 +35,8 @@ if (-not $VsInstall) { $VsInstall = $script:DefaultVsInstall }
 # 版本号 -> 源码目录
 function Get-OpensslSourceDir([string]$version) {
     switch ($version) {
-        "1.1.1w" { Join-Path $script:RepoRoot "checkouts\openssl-1.1.1w" }
-        "3.5.9"  { Join-Path $script:RepoRoot "checkouts\openssl-3.5.9" }
+        "1.1.1w" { Join-Path $script:RepoRoot "openssl-1.1.1w" }
+        "3.5.9"  { Join-Path $script:RepoRoot "openssl-3.5.9" }
         default  { throw "不支持的 OpenSSL 版本: $version" }
     }
 }
@@ -60,6 +60,35 @@ function Get-CurlPrefix([string]$opensslVersion, [string]$mode) {
 # include + lib 都在则视为已安装，重复运行时跳过
 function Test-Installed([string]$prefix) {
     (Test-Path (Join-Path $prefix "include")) -and (Test-Path (Join-Path $prefix "lib"))
+}
+
+# 校验子模块目录是否完整：目录存在、非空、git HEAD 可解析（元数据有效）
+function Test-SubmoduleComplete([string]$dir) {
+    if (-not (Test-Path -LiteralPath $dir)) { return $false }
+    if (-not (Get-ChildItem -LiteralPath $dir -Force | Select-Object -First 1)) { return $false }
+    git -C $dir rev-parse HEAD 2>$null | Out-Null
+    return ($LASTEXITCODE -eq 0)
+}
+
+# 确保 .gitmodules 登记的子模块已拉取且完整；缺失/不完整的才拉取，已完整的跳过
+function Ensure-Submodules {
+    $gitmodules = Join-Path $script:RepoRoot ".gitmodules"
+    if (-not (Test-Path -LiteralPath $gitmodules)) { return }
+    $subs = git -C $script:RepoRoot config --file $gitmodules --get-regexp '^submodule\..*\.path$' |
+        ForEach-Object { ($_ -split '\s+')[1] }
+    if (-not $subs) { return }
+    foreach ($sub in $subs) {
+        $dir = Join-Path $script:RepoRoot $sub
+        if (Test-SubmoduleComplete $dir) {
+            Write-Host ">>> 子模块 $sub 已就绪，跳过"
+            continue
+        }
+        Write-Host ">>> 子模块 $sub 缺失或不完整，拉取中..."
+        git -C $script:RepoRoot submodule update --init --recursive -- $sub
+        if (-not (Test-SubmoduleComplete $dir)) {
+            throw "子模块 $sub 拉取后仍不完整，请检查网络后重试"
+        }
+    }
 }
 
 # MSVC 下静态/动态都用 .lib（动态为导入库），OpenSSL 按名取即可
@@ -157,7 +186,7 @@ function Build-Ssh2([string]$opensslVersion, [string]$mode) {
     $sslPrefix = Get-OpensslPrefix $opensslVersion $mode
     $prefix    = Get-Ssh2Prefix $opensslVersion $mode
     $buildDir  = Join-Path $buildRoot "$platform\.build\ssh2-$Ssh2Version-openssl-$opensslVersion-$mode"
-    $srcDir    = Join-Path $script:RepoRoot "checkouts\libssh2-$Ssh2Version"
+    $srcDir    = Join-Path $script:RepoRoot "libssh2-$Ssh2Version"
 
     if (Test-Installed $prefix) { Write-Host ">>> 跳过 libssh2 $Ssh2Version / $mode：已安装"; return }
     Write-Host ">>> 编译 libssh2 $Ssh2Version / $mode (OpenSSL $opensslVersion)"
@@ -196,7 +225,7 @@ function Build-Curl([string]$opensslVersion, [string]$mode) {
     $ssh2Prefix = Get-Ssh2Prefix $opensslVersion $mode
     $prefix     = Get-CurlPrefix $opensslVersion $mode
     $buildDir   = Join-Path $buildRoot "$platform\.build\curl-$CurlVersion-openssl-$opensslVersion-$mode"
-    $srcDir     = Join-Path $script:RepoRoot "checkouts\curl-$CurlVersion"
+    $srcDir     = Join-Path $script:RepoRoot "curl-$CurlVersion"
 
     if (Test-Installed $prefix) { Write-Host ">>> 跳过 curl $CurlVersion / $mode：已安装"; return }
     Write-Host ">>> 编译 curl $CurlVersion / $mode (OpenSSL $opensslVersion + libssh2)"
@@ -230,6 +259,8 @@ function Build-Curl([string]$opensslVersion, [string]$mode) {
     & $cmake --install $buildDir --config Release
     if ($LASTEXITCODE -ne 0) { throw "curl install 失败" }
 }
+
+Ensure-Submodules
 
 New-Item -ItemType Directory -Force -Path $treeRoot | Out-Null
 foreach ($v in $Versions) {
