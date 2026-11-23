@@ -1,0 +1,44 @@
+# =============================================================================
+# GitHub Actions 示范（二）：在云端 Ubuntu 上实际编译三库
+#
+# 与 ci.yml 的区别：这里安装编译工具链并跑 build-ubuntu.sh 出产物，
+# 编译耗时较长，默认只在网页手动触发；改动 scripts/ 时推送到 master 也会跑。
+# 产物通过 upload-artifact 打包，可在该次运行页面下载。
+# =============================================================================
+
+name: Build Ubuntu
+
+on:
+  workflow_dispatch: # 手动触发：Actions 页面点 "Run workflow"
+  push:
+    branches: [master]
+    paths: # 仅脚本或本 workflow 改动时才触发编译，避免无关提交重编
+      - 'scripts/**'
+      - '.github/workflows/build-ubuntu.yml'
+
+jobs:
+  build:
+    name: Ubuntu 22.04 编译（OpenSSL 3.5.9 / static 示范）
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: 检出代码（含子模块）
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      # runner 自带 gcc/make；补装 perl 与 cmake（OpenSSL 用 perl，ssh2/curl 用 cmake）
+      - name: 安装编译依赖
+        run: sudo apt-get update && sudo apt-get install -y build-essential perl cmake
+
+      # 只编 3.5.9 静态库做示范，缩短耗时；去掉 --versions / MODES 即可全量编
+      - name: 编译三库（3.5.9 / static）
+        run: MODES=static bash scripts/build-ubuntu.sh --versions 3.5.9
+
+      # 把 build/ 下产物打包成 Actions 构件，运行结束后可在网页下载
+      - name: 上传编译产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: ubuntu-22.04-static-3.5.9
+          path: build/ubuntu22.04-x64/
+          retention-days: 7

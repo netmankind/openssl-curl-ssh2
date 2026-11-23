@@ -1,0 +1,66 @@
+# =============================================================================
+# GitHub Actions 示范（一）：CI 静态校验
+#
+# 概念速览（第一次接触 Actions 先看这里）：
+#   - workflow  : 一条自动化流程，文件放在 .github/workflows/ 下即被识别
+#   - on        : 触发器，定义什么事件自动跑这条流程
+#   - job       : 在一台托管虚拟机(runner)上执行的一组步骤；多个 job 默认并行
+#   - step      : job 内按顺序执行的单个动作
+#   - runner    : GitHub 提供的虚拟机，runs-on 指定系统（ubuntu/windows/macos）
+#
+# 本 workflow 不做重型编译，只在每次推送 / 提 PR 时校验脚本语法与子模块完整性，
+# 速度快、作为 CI 门槛；真正的云端编译示范见 build-ubuntu.yml。
+# =============================================================================
+
+name: CI
+
+# 触发器：推送到 master、向 master 提 PR、以及网页手动运行
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+# 一个 job：在最新 Ubuntu runner 上跑校验
+jobs:
+  check:
+    name: 脚本与子模块校验
+    runs-on: ubuntu-latest
+
+    steps:
+      # 把主仓库代码检出到 runner 工作目录；submodules: recursive 连子模块一起拉
+      - name: 检出代码（含子模块）
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      # 打印 runner 系统与工具版本，方便在日志里核对环境
+      - name: 打印环境信息
+        run: |
+          uname -a
+          bash --version | head -1
+          gcc --version | head -1 || true
+
+      # bash 语法检查：bash -n 只解析不执行，捕获脚本语法错误
+      - name: 校验 bash 脚本语法
+        run: |
+          shopt -s nullglob
+          for f in scripts/*.sh scripts/lib/*.sh; do
+            echo "检查 $f"
+            bash -n "$f"
+          done
+
+      # 子模块完整性校验：目录非空且 git HEAD 可解析（口径与 common.sh 一致）
+      - name: 校验子模块源码完整
+        run: |
+          set -euo pipefail
+          source scripts/common.sh
+          for sub in openssl-1.1.1w openssl-3.5.9 libssh2-1.11.1 curl-8.23.0; do
+            if isSubmoduleComplete "$REPO_ROOT/$sub"; then
+              echo "OK  $sub"
+            else
+              echo "缺失或不完整: $sub" >&2
+              exit 1
+            fi
+          done

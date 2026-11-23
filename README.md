@@ -165,6 +165,17 @@ build/<平台>/curl-8.23.0-openssl-<版本>-<static|shared>/
   curl_easy_setopt(curl, CURLOPT_CAINFO, CA_BUNDLE_PATH);
   ```
 
+## CI（GitHub Actions）
+
+`.github/workflows/` 下有两条 workflow，推送到 GitHub 后在仓库 **Actions** 标签页查看运行结果：
+
+| workflow | 触发 | 作用 |
+|---|---|---|
+| `ci.yml` | push / PR / 手动 | 校验 bash 脚本语法与子模块完整性，不做编译，跑得快 |
+| `build-ubuntu.yml` | 手动，或 `scripts/**` 改动 push | 在 Ubuntu 22.04 runner 上编译 3.5.9 静态库，产物打包为 Actions 构件下载 |
+
+> GitHub Actions 仅在 GitHub 仓库运行；GitCode 镜像不执行这些 workflow。
+
 ## License
 
 沿用上游的 MIT License，见 `LICENSE`。
