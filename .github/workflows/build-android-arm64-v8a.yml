@@ -1,0 +1,53 @@
+# =============================================================================
+# GitHub Actions 示范：云端 Ubuntu 宿主交叉编译 Android arm64-v8a（纯手动触发）
+#
+# runner 为 Ubuntu，下载 NDK r22.1.7171670 后用 NDK clang 交叉编译；
+# 触发器仅 workflow_dispatch：在 Actions 页面点 "Run workflow"，可选 OpenSSL 版本与产物模式。
+# =============================================================================
+
+name: Build Android arm64-v8a
+
+on:
+  workflow_dispatch:
+    inputs:
+      versions:
+        description: 参与编译的 OpenSSL 版本（空格分隔）
+        default: "3.5.9"
+        required: true
+      modes:
+        description: 产物模式 static / shared，空格分隔
+        default: "static"
+        required: true
+
+jobs:
+  build:
+    name: Android arm64-v8a 编译
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: 检出代码（含子模块）
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      # 交叉编译宿主工具：perl(OpenSSL)、make/cmake(ssh2/curl)、unzip 解 NDK
+      - name: 安装宿主基础依赖
+        run: sudo apt-get update && sudo apt-get install -y build-essential perl cmake make unzip curl
+
+      # 下载与本机锁定版本一致的 NDK；解压后把根目录写入 NDK 环境变量供脚本 resolveNdk 使用
+      - name: 下载并解压 NDK r22.1.7171670
+        run: |
+          mkdir -p "$HOME/android-ndk"
+          curl -fsSL -o ndk.zip https://dl.google.com/android/repository/android-ndk-r22.1.7171670-linux.zip
+          unzip -q ndk.zip -d "$HOME/android-ndk"
+          echo "NDK=$HOME/android-ndk/android-ndk-r22.1.7171670" >> "$GITHUB_ENV"
+
+      - name: 编译三库
+        run: MODES="${{ inputs.modes }}" bash scripts/build-android-arm64-v8a.sh --versions "${{ inputs.versions }}"
+
+      - name: 上传编译产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-arm64-v8a
+          path: build/android-arm64-v8a/
+          retention-days: 7

@@ -167,14 +167,20 @@ build/<平台>/curl-8.23.0-openssl-<版本>-<static|shared>/
 
 ## CI（GitHub Actions）
 
-`.github/workflows/` 下有两条 workflow，推送到 GitHub 后在仓库 **Actions** 标签页查看运行结果：
+`.github/workflows/` 下共有七条 workflow，全部为**纯手动触发**（仅 `workflow_dispatch`，不随 push / PR 自动运行）；推送到 GitHub 后在仓库 **Actions** 标签页选中对应条目点 "Run workflow" 即可：
 
 | workflow | 触发 | 作用 |
 |---|---|---|
-| `ci.yml` | push / PR / 手动 | 校验 bash 脚本语法与子模块完整性，不做编译，跑得快 |
-| `build-ubuntu.yml` | 手动，或 `scripts/**` 改动 push | 在 Ubuntu 22.04 runner 上编译 3.5.9 静态库，产物打包为 Actions 构件下载 |
+| `ci.yml` | 手动 | 校验 bash 脚本语法与子模块完整性，不做编译，跑得快 |
+| `build-ubuntu.yml` | 手动 | 在 Ubuntu 22.04 runner 上编译三库，产物打包为 Actions 构件下载 |
+| `build-msvc.yml` | 手动 | 在 Windows Server 2022 runner（VS2022）上编译 MSVC x64 产物 |
+| `build-android-arm64-v8a.yml` | 手动 | Ubuntu 宿主下载 NDK 后交叉编译 Android arm64-v8a |
+| `build-android-armeabi-v7a.yml` | 手动 | Ubuntu 宿主下载 NDK 后交叉编译 Android armeabi-v7a |
+| `build-mingw-qt5.yml` | 手动（占位） | 绑定本机 Qt 5.15 套件 MinGW 8.1，云端 runner 无对应工具链，仅在本机编译 |
+| `build-mingw-qt6.yml` | 手动（占位） | 绑定本机 Qt 6.8 套件 MinGW 13.1，云端 runner 无对应工具链，仅在本机编译 |
 
-> GitHub Actions 仅在 GitHub 仓库运行；GitCode 镜像不执行这些 workflow。
+> - 除两条 MinGW 占位外，其余五条均在 GitHub 托管 runner 上真实编译；MinGW 两条保留 workflow 结构，编译步骤以注释形式留档，需要时可在本机或改造为 msys2 通用工具链后放开。
+> - GitHub Actions 仅在 GitHub 仓库运行；GitCode 镜像不执行这些 workflow。
 
 ## License
 

@@ -1,0 +1,48 @@
+# =============================================================================
+# GitHub Actions 示范：Windows MSVC x64 编译三库（纯手动触发）
+#
+# runner 自带 Visual Studio 2022 与 CMake；这里补装 Strawberry Perl（OpenSSL Configure 依赖）。
+# 触发器仅 workflow_dispatch：在 Actions 页面点 "Run workflow"，可选 OpenSSL 版本与产物模式。
+# =============================================================================
+
+name: Build MSVC
+
+on:
+  workflow_dispatch:
+    inputs:
+      versions:
+        description: 参与编译的 OpenSSL 版本（空格分隔）
+        default: "3.5.9"
+        required: true
+      modes:
+        description: 产物模式 static / shared，空格分隔
+        default: "static"
+        required: true
+
+jobs:
+  build:
+    name: MSVC x64 编译
+    runs-on: windows-2022
+
+    steps:
+      - name: 检出代码（含子模块）
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      # OpenSSL Configure 需要 perl；runner 不自带，用 Chocolatey 装 Strawberry Perl
+      - name: 安装 Strawberry Perl
+        run: choco install strawberryperl -y --no-progress
+
+      # 脚本自动用 vswhere 定位 VS2022；Perl 用绝对路径传入，避免当前会话 PATH 未刷新
+      - name: 编译三库
+        shell: pwsh
+        run: |
+          .\scripts\build-msvc.ps1 -Versions "${{ inputs.versions }}" -Modes "${{ inputs.modes }}" -PerlCmd "C:\Strawberry\perl\bin\perl.exe"
+
+      - name: 上传编译产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: msvc-x64
+          path: build/msvc-x64/
+          retention-days: 7

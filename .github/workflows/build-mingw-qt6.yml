@@ -1,0 +1,54 @@
+# =============================================================================
+# GitHub Actions 示范：Windows MinGW（Qt 6.8 套件）—— 占位骨架，云端不编译
+#
+# 说明：
+#   本入口绑定本机 Qt 6.8 预编译包同款 MinGW 13.1（MINGW_BIN 默认 /e/Qt/Tools/mingw1310_64/bin）。
+#   GitHub windows runner 不携带 Qt 套件；msys2 通用 mingw-w64 为最新 gcc，与 13.1 不完全一致，
+#   因此该平台以本地编译为主；本 workflow 仅作结构占位，不触发真实编译。
+#
+# 触发器仅 workflow_dispatch：在 Actions 页面点 "Run workflow" 手动运行。
+# 若后续要在云端用 msys2 通用工具链试编，可在下方注释处放开编译步骤（工具链版本与 Qt 套件不一致，产物仅供参考）。
+# =============================================================================
+
+name: Build MinGW Qt6
+
+on:
+  workflow_dispatch:
+    inputs:
+      versions:
+        description: 参与编译的 OpenSSL 版本（空格分隔）
+        default: "3.5.9"
+        required: true
+      modes:
+        description: 产物模式 static / shared，空格分隔
+        default: "static"
+        required: true
+
+jobs:
+  placeholder:
+    name: MinGW Qt6（本地工具链，云端不编译）
+    runs-on: windows-2022
+
+    steps:
+      - name: 检出代码（含子模块）
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: 说明
+        run: |
+          Write-Host "MinGW Qt6 入口绑定本机 Qt 6.8 套件 MinGW 13.1，云端 runner 无对应工具链，跳过编译。"
+          Write-Host "请在本机 Git Bash 执行: MINGW_BIN=/e/Qt/Tools/mingw1310_64/bin bash scripts/build-mingw-qt6.sh"
+
+      # 可选：用 msys2 通用 mingw-w64 试编（工具链版本与 Qt 套件不一致，未在 Actions 验证）
+      # - name: 安装 msys2 mingw-w64 工具链
+      #   uses: msys2/setup-msys2@v2
+      #   with:
+      #     msystem: mingw64
+      #     install: >-
+      #       mingw-w64-x86_64-toolchain
+      #       mingw-w64-x86_64-cmake
+      #       perl
+      # - name: 编译三库
+      #   shell: msys2 {bash}
+      #   run: MINGW_BIN="/c/msys64/mingw64/bin" MODES="${{ inputs.modes }}" bash scripts/build-mingw-qt6.sh --versions "${{ inputs.versions }}"

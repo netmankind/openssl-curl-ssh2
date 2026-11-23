@@ -82,12 +82,15 @@ setupToolchain() {
 
     export PATH="$ndkRoot/toolchains/llvm/prebuilt/$hostTag/bin:$PATH"
     export PERL="$PERL_CMD"
-    export CC="$toolchain/bin/clang.exe --target=${triple}${API_LEVEL} --sysroot=$sysroot"
-    export CXX="$toolchain/bin/clang++.exe --target=${triple}${API_LEVEL} --sysroot=$sysroot"
+    # 工具链后缀随宿主：Windows 为 .exe，Linux/macOS 无后缀
+    local exe=""
+    isWindowsHost && exe=".exe"
+    export CC="$toolchain/bin/clang$exe --target=${triple}${API_LEVEL} --sysroot=$sysroot"
+    export CXX="$toolchain/bin/clang++$exe --target=${triple}${API_LEVEL} --sysroot=$sysroot"
     export AS="$CC"
-    export AR="$toolchain/bin/llvm-ar"
-    export RANLIB="$toolchain/bin/llvm-ranlib"
-    export STRIP="$toolchain/bin/llvm-strip"
+    export AR="$toolchain/bin/llvm-ar$exe"
+    export RANLIB="$toolchain/bin/llvm-ranlib$exe"
+    export STRIP="$toolchain/bin/llvm-strip$exe"
     # armv7 需显式指定 ARMv7-A / Thumb / softfp；arm64 由 triple 自带，无需追加
     if [[ "$ABI" == "armeabi-v7a" ]]; then
         export CFLAGS="-march=armv7-a -mthumb -mfloat-abi=softfp"

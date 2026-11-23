@@ -8,18 +8,14 @@
 #   - step      : job 内按顺序执行的单个动作
 #   - runner    : GitHub 提供的虚拟机，runs-on 指定系统（ubuntu/windows/macos）
 #
-# 本 workflow 不做重型编译，只在每次推送 / 提 PR 时校验脚本语法与子模块完整性，
-# 速度快、作为 CI 门槛；真正的云端编译示范见 build-ubuntu.yml。
+# 本 workflow 不做重型编译，只在手动触发时校验脚本语法与子模块完整性，
+# 速度快、作为静态校验；真正的云端编译示范见各 build-*.yml。
 # =============================================================================
 
 name: CI
 
-# 触发器：推送到 master、向 master 提 PR、以及网页手动运行
+# 触发器：仅网页手动运行（Actions 页面点 "Run workflow"），不随 push/PR 自动跑
 on:
-  push:
-    branches: [master]
-  pull_request:
-    branches: [master]
   workflow_dispatch:
 
 # 一个 job：在最新 Ubuntu runner 上跑校验
